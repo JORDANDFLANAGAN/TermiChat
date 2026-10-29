@@ -5,21 +5,32 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "start": "node --import tsx/esm src/server.ts",
+    "dev": "nodemon --exec tsx src/server.ts"
   },
   "keywords": [],
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^18.0.9",
     "express": "^4.22.3",
+    "ink": "^8.0.0",
     "nodemon": "^3.1.14",
+    "react": "^19.3.1",
     "uuid": "^14.0.3"
   },
   "allowScripts": {
     "bcrypt@6.0.0": true,
-    "better-sqlite3@13.0.3": true
+    "better-sqlite3@13.0.3": true,
+    "esbuild@0.28.2": true
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }
