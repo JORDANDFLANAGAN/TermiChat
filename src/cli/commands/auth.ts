@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { saveToken, getToken, deleteToken } from '../token.js';
 
+const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
+
 const instance = axios.create({
-    baseURL: 'http://localhost:3000',
+    baseURL: BASE_URL,
     timeout: 5000,
 });
 

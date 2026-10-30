@@ -1,4 +1,5 @@
 import http from 'http';
+import https from 'https';
 import axios from 'axios';
 import { getToken } from '../token.js';
 
@@ -15,8 +16,11 @@ export interface Room {
     is_member: 0 | 1;
 }
 
+const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
+const parsedBase = new URL(BASE_URL);
+
 const instance = axios.create({
-    baseURL: 'http://localhost:3000',
+    baseURL: BASE_URL,
     timeout: 5000,
 });
 
@@ -88,9 +92,11 @@ export function streamMessages(roomId: number, onMessage: (msg: Message) => void
     // Buffer accumulates chunks until we have a complete "data: ...\n\n" frame.
     let buffer = '';
 
-    const req = http.get({
-        hostname: 'localhost',
-        port: 3000,
+    // Use https or http depending on the BASE_URL protocol (VS Code forwarding uses https)
+    const transport = parsedBase.protocol === 'https:' ? https : http;
+    const req = transport.get({
+        hostname: parsedBase.hostname,
+        port: parsedBase.port || (parsedBase.protocol === 'https:' ? 443 : 80),
         path: `/chat/rooms/${roomId}/stream`,
         headers: { Authorization: `Bearer ${token}` },
     }, (res) => {
