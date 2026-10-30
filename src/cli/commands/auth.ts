@@ -46,8 +46,9 @@ export async function logout(): Promise<void> {
         await instance.post('/auth/logout', {}, {
             headers: { Authorization: `Bearer ${token}` }
         });
+    } catch {
+        // server rejection is fine — token may already be invalid
+    } finally {
         deleteToken();
-    } catch (error) {
-        apiError(error);
     }
 }

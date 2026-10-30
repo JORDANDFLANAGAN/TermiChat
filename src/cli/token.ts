@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-const TOKEN_DIR = path.join(os.homedir(), '.plugandplaydb');
+const TOKEN_DIR = path.join(os.homedir(), '.termichat');
 const TOKEN_PATH = path.join(TOKEN_DIR, 'token');
 
 export function saveToken(token: string): void {

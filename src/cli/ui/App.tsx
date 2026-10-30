@@ -8,7 +8,7 @@ import { Chatroom } from './Chatroom.js';
 import { login, register, logout, getMe } from '../commands/auth.js';
 import { kickUser } from '../commands/admin.js';
 import { Room } from '../commands/chat.js';
-import { getToken } from '../token.js';
+import { getToken, deleteToken } from '../token.js';
 
 type Screen = 'main' | 'login' | 'register' | 'admin-users' | 'kick-user' | 'rooms' | 'chat';
 
@@ -17,6 +17,7 @@ export const App = () => {
     const [screen, setScreen] = useState<Screen>('main');
     const [loggedIn, setLoggedIn] = useState(!!getToken());
     const [isAdmin, setIsAdmin] = useState(false);
+    const [username, setUsername] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
     const [statusColor, setStatusColor] = useState<'green' | 'red'>('green');
     const [activeRoom, setActiveRoom] = useState<Room | null>(null);
@@ -24,8 +25,14 @@ export const App = () => {
     useEffect(() => {
         if (getToken()) {
             getMe()
-                .then(user => setIsAdmin(user.role === 'admin'))
-                .catch(() => {});
+                .then(user => {
+                    setIsAdmin(user.role === 'admin');
+                    setUsername(user.username);
+                })
+                .catch(() => {
+                    deleteToken();
+                    setLoggedIn(false);
+                });
         }
     }, [loggedIn]);
 
@@ -77,6 +84,7 @@ export const App = () => {
             <LoginPrompt
                 title="Register"
                 onSubmit={register}
+                minPasswordLength={8}
                 onComplete={(success) => {
                     if (success) status('Account created. You can now log in.');
                     setScreen('main');
@@ -114,7 +122,7 @@ export const App = () => {
     return (
         <Box flexDirection="column">
             {statusMessage && <Text color={statusColor}>{statusMessage}</Text>}
-            <Menu title="PlugAndPlayDB" items={mainMenuItems} />
+            <Menu title={username ? `TermiChat  (${username})` : 'TermiChat'} items={mainMenuItems} />
         </Box>
     );
 };

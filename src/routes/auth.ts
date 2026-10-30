@@ -1,8 +1,21 @@
 import express, { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import rateLimit from 'express-rate-limit';
 import db from '../db.js';
 import requireAuth from '../middleware/auth.js';
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { message: 'Too many login attempts. Try again later.' },
+});
+
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    message: { message: 'Too many registration attempts. Try again later.' },
+});
 
 const router = express.Router();
 
@@ -11,12 +24,22 @@ interface AuthBody {
     password: string;
 }
 
-router.post('/register', async (req: Request<{}, {}, AuthBody>, res: Response) => {
+router.post('/register', registerLimiter, async (req: Request<{}, {}, AuthBody>, res: Response) => {
     try {
         const { username, password } = req.body;
 
         if (!username || !password) {
             res.status(400).json({ message: 'Username and password are required' });
+            return;
+        }
+
+        if (password.length < 8) {
+            res.status(400).json({ message: 'Password must be at least 8 characters.' });
+            return;
+        }
+
+        if (username.length > 32) {
+            res.status(400).json({ message: 'Username must be 32 characters or fewer.' });
             return;
         }
 
@@ -36,12 +59,17 @@ router.post('/register', async (req: Request<{}, {}, AuthBody>, res: Response) =
     }
 });
 
-router.post('/login', async (req: Request<{}, {}, AuthBody>, res: Response) => {
+router.post('/login', loginLimiter, async (req: Request<{}, {}, AuthBody>, res: Response) => {
     try {
         const { username, password } = req.body;
 
         if (!username || !password) {
             res.status(400).json({ message: 'Username and password are required' });
+            return;
+        }
+
+        if (username.length > 32 || password.length > 128) {
+            res.status(401).json({ message: 'Invalid credentials.' });
             return;
         }
 
@@ -58,6 +86,7 @@ router.post('/login', async (req: Request<{}, {}, AuthBody>, res: Response) => {
         const expiresAt = new Date();
         expiresAt.setUTCDate(expiresAt.getUTCDate() + 1);
 
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
         db.prepare('INSERT INTO sessions (token, expires_at, user_id) VALUES (?, ?, ?)').run(
             token,
             expiresAt.toISOString(),

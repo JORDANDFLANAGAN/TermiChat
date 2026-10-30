@@ -34,6 +34,11 @@ router.post('/rooms', requireAuth, (req: Request<{}, {}, RoomBody>, res: Respons
             return;
         }
 
+        if (name.length > 32) {
+            res.status(400).json({ message: 'Room name must be 32 characters or fewer.' });
+            return;
+        }
+
         const existing = db.prepare('SELECT id FROM rooms WHERE name = ?').get(name);
         if (existing) {
             res.status(400).json({ message: 'A room with that name already exists.' });
@@ -90,6 +95,11 @@ router.post('/rooms/:roomId/messages', requireAuth, (req: Request<{ roomId: stri
 
         if (!content) {
             res.status(400).json({ message: 'Message content is required.' });
+            return;
+        }
+
+        if (content.length > 2000) {
+            res.status(400).json({ message: 'Message must be 2000 characters or fewer.' });
             return;
         }
 

@@ -6,13 +6,15 @@ interface LoginPromptProps {
     title?: string;
     onSubmit: (username: string, password: string) => Promise<void>;
     onComplete: (success: boolean) => void;
+    minPasswordLength?: number;
 }
 
-export const LoginPrompt = ({ title = 'Login', onSubmit, onComplete }: LoginPromptProps) => {
+export const LoginPrompt = ({ title = 'Login', onSubmit, onComplete, minPasswordLength }: LoginPromptProps) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [step, setStep] = useState<'username' | 'password' | 'done'>('username');
     const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
     const [succeeded, setSucceeded] = useState(false);
 
     useInput((_, key) => {
@@ -25,15 +27,20 @@ export const LoginPrompt = ({ title = 'Login', onSubmit, onComplete }: LoginProm
     };
 
     const handlePasswordSubmit = async (value: string) => {
+        if (minPasswordLength && value.length < minPasswordLength) {
+            setError(`Password must be at least ${minPasswordLength} characters.`);
+            setPassword('');
+            return;
+        }
         try {
             await onSubmit(username, value);
             setMessage('Success!');
             setSucceeded(true);
+            setStep('done');
         } catch (err: any) {
-            setMessage(err.message ?? 'Failed.');
-            setSucceeded(false);
+            setError(err.message ?? 'Failed.');
+            setPassword('');
         }
-        setStep('done');
     };
 
     return (
@@ -47,9 +54,12 @@ export const LoginPrompt = ({ title = 'Login', onSubmit, onComplete }: LoginProm
                 </Box>
             )}
             {step === 'password' && (
-                <Box>
-                    <Text>Password: </Text>
-                    <TextInput value={password} onChange={setPassword} onSubmit={handlePasswordSubmit} mask="*" />
+                <Box flexDirection="column">
+                    {error && <Text color="red">{error}</Text>}
+                    <Box>
+                        <Text>Password: </Text>
+                        <TextInput value={password} onChange={setPassword} onSubmit={handlePasswordSubmit} mask="*" />
+                    </Box>
                 </Box>
             )}
             {step === 'done' && (
