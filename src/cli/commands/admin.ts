@@ -1,42 +1,45 @@
 import axios from 'axios';
 import { getToken } from '../token.js';
 
+export interface ActiveUser {
+    id: number;
+    username: string;
+    expires_at: string;
+}
+
 const instance = axios.create({
     baseURL: 'http://localhost:3000',
-    timeout: 1000,
+    timeout: 5000,
 });
 
-export async function listUsers(): Promise<void> {
-    const token = getToken();
-    if (!token) {
-        console.log('Not logged in.');
-        return;
+function apiError(error: unknown): never {
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+        throw new Error(error.response.data.message);
     }
+    throw new Error('Request failed.');
+}
+
+function authHeaders() {
+    const token = getToken();
+    if (!token) throw new Error('Not logged in.');
+    return { Authorization: `Bearer ${token}` };
+}
+
+export async function listUsers(): Promise<ActiveUser[]> {
+    const headers = authHeaders();
     try {
-        const response = await instance.get('/admin/users', {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        console.log('Active users:');
-        response.data.users.forEach((user: { username: string; expires_at: string }) => {
-            console.log(`  ${user.username} (session expires: ${user.expires_at})`);
-        });
+        const response = await instance.get('/admin/users', { headers });
+        return response.data.users;
     } catch (error) {
-        console.log('Failed to fetch users.');
+        apiError(error);
     }
 }
 
 export async function kickUser(username: string): Promise<void> {
-    const token = getToken();
-    if (!token) {
-        console.log('Not logged in.');
-        return;
-    }
+    const headers = authHeaders();
     try {
-        const response = await instance.delete(`/admin/users/${username}/session`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        console.log(response.data.message);
+        await instance.delete(`/admin/users/${username}/session`, { headers });
     } catch (error) {
-        console.log(`Failed to kick ${username}.`);
+        apiError(error);
     }
 }

@@ -1,52 +1,44 @@
 import axios from 'axios';
 import { saveToken, getToken, deleteToken } from '../token.js';
 
-const API = 'http://localhost:3000';
-
 const instance = axios.create({
-    baseURL: API,
-    timeout: 1000,
+    baseURL: 'http://localhost:3000',
+    timeout: 5000,
 });
 
+function apiError(error: unknown): never {
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+    }
+    throw new Error('Request failed.');
+}
 
 export async function register(username: string, password: string): Promise<void> {
     try {
-        const response = await instance.post('/auth/register', {
-            username: username,
-            password: password
-        });
-        console.log(response.data.message);
+        await instance.post('/auth/register', { username, password });
     } catch (error) {
-        console.log('Error when registering user!');
+        apiError(error);
     }
-};
+}
 
 export async function login(username: string, password: string): Promise<void> {
     try {
-        const response = await instance.post('/auth/login', {
-            username: username,
-            password: password
-        });
+        const response = await instance.post('/auth/login', { username, password });
         saveToken(response.data.token);
-        console.log(response.data.message);
     } catch (error) {
-        console.log('Issue while attempting Login!');
+        apiError(error);
     }
-};
+}
 
 export async function logout(): Promise<void> {
     const token = getToken();
-    if (!token) {
-        console.log('Not logged in.');
-        return;
-    }
+    if (!token) throw new Error('Not logged in.');
     try {
         await instance.post('/auth/logout', {}, {
             headers: { Authorization: `Bearer ${token}` }
         });
         deleteToken();
-        console.log('Logged out.');
     } catch (error) {
-        console.log('Issue logging out!');
+        apiError(error);
     }
 }
