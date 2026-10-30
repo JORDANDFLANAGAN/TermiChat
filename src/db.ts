@@ -28,4 +28,28 @@ db.exec(`
     user_id INTEGER NOT NULL REFERENCES users(id))
     `);
 
+db.exec(`
+    CREATE TABLE IF NOT EXISTS rooms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    creator_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')))
+    `);
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_content TEXT NOT NULL,
+    message_creator INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    room_id INTEGER NOT NULL REFERENCES rooms(id))
+    `);
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id INTEGER NOT NULL REFERENCES rooms(id),
+    user_id INTEGER NOT NULL REFERENCES users(id))
+    `);
+
 export default db;
