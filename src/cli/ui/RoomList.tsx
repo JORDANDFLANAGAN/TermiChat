@@ -3,6 +3,8 @@ import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { getRooms, joinRoom, createRoom, Room } from '../commands/chat.js';
 
+type Tab = 'all' | 'my';
+
 interface RoomListProps {
     onEnterRoom: (room: Room) => void;
     onBack: () => void;
@@ -10,6 +12,7 @@ interface RoomListProps {
 
 export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
     const [rooms, setRooms] = useState<Room[]>([]);
+    const [tab, setTab] = useState<Tab>('all');
     const [selected, setSelected] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -23,17 +26,25 @@ export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
             .finally(() => setLoading(false));
     }, []);
 
+    // Rooms shown in the active tab
+    const visible = tab === 'my' ? rooms.filter(r => r.is_member) : rooms;
+
     useInput(async (input, key) => {
         if (creating) return;
         if (key.upArrow) setSelected(i => Math.max(0, i - 1));
-        if (key.downArrow) setSelected(i => Math.min(rooms.length - 1, i + 1));
+        if (key.downArrow) setSelected(i => Math.min(visible.length - 1, i + 1));
         if (key.escape) onBack();
         if (input === 'n') setCreating(true);
-        if (key.return && rooms[selected]) {
+        // Left/right arrows switch tabs and reset the cursor to the top
+        if (key.leftArrow || key.rightArrow) {
+            setTab(t => t === 'all' ? 'my' : 'all');
+            setSelected(0);
+        }
+        if (key.return && visible[selected]) {
             try {
-                await joinRoom(rooms[selected].id);
+                await joinRoom(visible[selected].id);
             } catch { }
-            onEnterRoom(rooms[selected]);
+            onEnterRoom(visible[selected]);
         }
     });
 
@@ -55,13 +66,17 @@ export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
 
     return (
         <Box flexDirection="column" borderStyle="round" paddingX={2} paddingY={1}>
-            <Text bold color="cyan">Rooms</Text>
+            {/* Tab headers */}
+            <Box gap={2}>
+                <Text bold={tab === 'all'} color={tab === 'all' ? 'cyan' : undefined}>All</Text>
+                <Text bold={tab === 'my'} color={tab === 'my' ? 'cyan' : undefined}>My Rooms</Text>
+            </Box>
             <Text> </Text>
             {error && <Text color="red">{error}</Text>}
-            {rooms.length === 0 && !creating ? (
-                <Text dimColor>No rooms yet. Press n to create one.</Text>
+            {visible.length === 0 && !creating ? (
+                <Text dimColor>{tab === 'my' ? "You haven't joined any rooms yet." : 'No rooms yet. Press n to create one.'}</Text>
             ) : (
-                rooms.map((room, i) => (
+                visible.map((room, i) => (
                     <Text key={room.id} color={i === selected ? 'cyan' : 'white'}>
                         {i === selected ? '› ' : '  '}{room.name}
                     </Text>
@@ -74,7 +89,7 @@ export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
                 </Box>
             )}
             <Text> </Text>
-            <Text dimColor>↑↓ navigate   enter open   n new room   esc back</Text>
+            <Text dimColor>↑↓ navigate   ←→ switch tab   enter open   n new room   esc back</Text>
         </Box>
     );
 };

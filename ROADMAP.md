@@ -10,9 +10,9 @@
 
 ## Features (Priority: High)
 
-- [ ] **SSE live messages** — wire up the `/chat/rooms/:roomId/stream` endpoint in the Chatroom UI so messages appear in real time without re-entering the room
+- [x] **SSE live messages** — wire up the `/chat/rooms/:roomId/stream` endpoint in the Chatroom UI so messages appear in real time without re-entering the room
 - [x] **Show current username** — display the logged-in username somewhere persistent in the UI (e.g. App header or chatroom header)
-- [ ] **My rooms vs all rooms** — differentiate between rooms the user has joined and rooms they haven't yet
+- [x] **My rooms vs all rooms** — differentiate between rooms the user has joined and rooms they haven't yet
 
 ## Features (Priority: Medium)
 

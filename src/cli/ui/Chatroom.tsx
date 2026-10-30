@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import { Message, Room, getMessages, sendMessage } from '../commands/chat.js';
+import { Message, Room, getMessages, sendMessage, streamMessages } from '../commands/chat.js';
 
 interface ChatroomProps {
     room: Room;
@@ -14,11 +14,22 @@ export const Chatroom = ({ room, onBack }: ChatroomProps) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
 
+    // One-time fetch to populate message history when entering the room.
     useEffect(() => {
         getMessages(room.id)
             .then(setMessages)
             .catch((err: Error) => setError(err.message))
             .finally(() => setLoading(false));
+    }, []);
+
+    // Opens the SSE stream for this room. Any message broadcast by the server
+    // (including ones we send ourselves) gets appended to the list in real time.
+    // The returned cleanup function closes the connection when we leave the room.
+    useEffect(() => {
+        const stop = streamMessages(room.id, (msg) => {
+            setMessages(prev => [...prev, msg]);
+        });
+        return stop;
     }, []);
 
     useInput((_, key) => {

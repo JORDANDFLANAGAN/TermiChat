@@ -14,10 +14,16 @@ interface MessageBody {
     content: string;
 }
 
-// GET /chat/rooms — list all rooms
-router.get('/rooms', requireAuth, (_req: Request, res: Response) => {
+// GET /chat/rooms — list all rooms, with is_member flag for the requesting user
+router.get('/rooms', requireAuth, (req: Request, res: Response) => {
     try {
-        const rooms = db.prepare('SELECT id, name, created_at FROM rooms ORDER BY created_at DESC').all();
+        const rooms = db.prepare(`
+            SELECT rooms.id, rooms.name, rooms.created_at,
+                   CASE WHEN members.user_id IS NOT NULL THEN 1 ELSE 0 END as is_member
+            FROM rooms
+            LEFT JOIN members ON members.room_id = rooms.id AND members.user_id = ?
+            ORDER BY rooms.created_at DESC
+        `).all(req.user!.id);
         res.status(200).json({ rooms });
     } catch {
         res.status(500).json({ message: 'Internal server error.' });

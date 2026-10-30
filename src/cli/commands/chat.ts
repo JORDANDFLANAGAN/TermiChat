@@ -1,4 +1,5 @@
 import axios from 'axios';
+import EventSource from 'eventsource';
 import { getToken } from '../token.js';
 
 export interface Message {
@@ -11,6 +12,7 @@ export interface Message {
 export interface Room {
     id: number;
     name: string;
+    is_member: 0 | 1;
 }
 
 const instance = axios.create({
@@ -71,4 +73,30 @@ export async function getRooms(): Promise<Room[]> {
     } catch (error) {
         apiError(error);
     }
+}
+
+// Opens a persistent HTTP connection to the server's SSE endpoint for a given room.
+// The server keeps this connection open and pushes a "data: {...}" line each time
+// a new message is posted to the room (see broadcast() in routes/chat.ts).
+// We parse each incoming event and hand the message to the caller via onMessage.
+// Returns a cleanup function — call it to close the connection when leaving the room.
+export function streamMessages(roomId: number, onMessage: (msg: Message) => void): () => void {
+    const token = getToken();
+    if (!token) return () => {};
+
+    // eventsource is a Node.js polyfill for the browser's EventSource API.
+    // We pass the auth token as a header because SSE is just a plain GET request.
+    const es = new EventSource(`http://localhost:3000/chat/rooms/${roomId}/stream`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // Fires once per "data: ...\n\n" frame the server sends.
+    es.onmessage = (event) => {
+        try {
+            const msg = JSON.parse(event.data) as Message;
+            onMessage(msg);
+        } catch {}
+    };
+
+    return () => es.close();
 }
