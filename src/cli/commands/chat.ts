@@ -1,5 +1,5 @@
+import http from 'http';
 import axios from 'axios';
-import EventSource from 'eventsource';
 import { getToken } from '../token.js';
 
 export interface Message {
@@ -76,27 +76,46 @@ export async function getRooms(): Promise<Room[]> {
 }
 
 // Opens a persistent HTTP connection to the server's SSE endpoint for a given room.
-// The server keeps this connection open and pushes a "data: {...}" line each time
-// a new message is posted to the room (see broadcast() in routes/chat.ts).
-// We parse each incoming event and hand the message to the caller via onMessage.
+// The server keeps this connection open and pushes a "data: {...}\n\n" frame each
+// time a new message is posted (see broadcast() in routes/chat.ts).
+// We use Node's built-in http module so we can pass auth headers — the browser
+// EventSource API doesn't support headers, so we parse the stream manually instead.
 // Returns a cleanup function — call it to close the connection when leaving the room.
 export function streamMessages(roomId: number, onMessage: (msg: Message) => void): () => void {
     const token = getToken();
     if (!token) return () => {};
 
-    // eventsource is a Node.js polyfill for the browser's EventSource API.
-    // We pass the auth token as a header because SSE is just a plain GET request.
-    const es = new EventSource(`http://localhost:3000/chat/rooms/${roomId}/stream`, {
+    // Buffer accumulates chunks until we have a complete "data: ...\n\n" frame.
+    let buffer = '';
+
+    const req = http.get({
+        hostname: 'localhost',
+        port: 3000,
+        path: `/chat/rooms/${roomId}/stream`,
         headers: { Authorization: `Bearer ${token}` },
+    }, (res) => {
+        res.on('data', (chunk: Buffer) => {
+            buffer += chunk.toString();
+
+            // SSE frames are separated by double newlines. Split on them,
+            // keeping any incomplete frame in the buffer for the next chunk.
+            const frames = buffer.split('\n\n');
+            buffer = frames.pop() ?? '';
+
+            for (const frame of frames) {
+                // Each frame may have multiple lines; we only care about "data: ..."
+                const dataLine = frame.split('\n').find(l => l.startsWith('data: '));
+                if (dataLine) {
+                    try {
+                        const msg = JSON.parse(dataLine.slice(6)) as Message;
+                        onMessage(msg);
+                    } catch {}
+                }
+            }
+        });
     });
 
-    // Fires once per "data: ...\n\n" frame the server sends.
-    es.onmessage = (event) => {
-        try {
-            const msg = JSON.parse(event.data) as Message;
-            onMessage(msg);
-        } catch {}
-    };
+    req.on('error', () => {});
 
-    return () => es.close();
+    return () => req.destroy();
 }
