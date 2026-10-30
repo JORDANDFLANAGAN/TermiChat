@@ -30,6 +30,15 @@ export async function login(username: string, password: string): Promise<void> {
     }
 }
 
+export async function getMe(): Promise<{ id: number; username: string; role: string }> {
+    try {
+        const response = await instance.get('/auth/me', { headers: { Authorization: `Bearer ${getToken()}` } });
+        return response.data;
+    } catch (error) {
+        apiError(error);
+    }
+}
+
 export async function logout(): Promise<void> {
     const token = getToken();
     if (!token) throw new Error('Not logged in.');

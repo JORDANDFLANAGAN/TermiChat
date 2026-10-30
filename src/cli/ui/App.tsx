@@ -1,20 +1,33 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useApp } from 'ink';
 import { Menu } from './Menu.js';
 import { LoginPrompt, KickUserPrompt } from './prompts.js';
 import { AdminUsers } from './AdminUsers.js';
-import { login, register, logout } from '../commands/auth.js';
+import { RoomList } from './RoomList.js';
+import { Chatroom } from './Chatroom.js';
+import { login, register, logout, getMe } from '../commands/auth.js';
 import { kickUser } from '../commands/admin.js';
+import { Room } from '../commands/chat.js';
 import { getToken } from '../token.js';
 
-type Screen = 'main' | 'login' | 'register' | 'admin-users' | 'kick-user';
+type Screen = 'main' | 'login' | 'register' | 'admin-users' | 'kick-user' | 'rooms' | 'chat';
 
 export const App = () => {
     const { exit } = useApp();
     const [screen, setScreen] = useState<Screen>('main');
     const [loggedIn, setLoggedIn] = useState(!!getToken());
+    const [isAdmin, setIsAdmin] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [statusColor, setStatusColor] = useState<'green' | 'red'>('green');
+    const [activeRoom, setActiveRoom] = useState<Room | null>(null);
+
+    useEffect(() => {
+        if (getToken()) {
+            getMe()
+                .then(user => setIsAdmin(user.role === 'admin'))
+                .catch(() => {});
+        }
+    }, [loggedIn]);
 
     const status = (msg: string, color: 'green' | 'red' = 'green') => {
         setStatusMessage(msg);
@@ -25,6 +38,7 @@ export const App = () => {
         try {
             await logout();
             setLoggedIn(false);
+            setIsAdmin(false);
             status('Logged out.');
         } catch (err: any) {
             status(err.message ?? 'Logout failed.', 'red');
@@ -32,10 +46,13 @@ export const App = () => {
     };
 
     const mainMenuItems = loggedIn ? [
-        { label: 'View Active Users', action: () => setScreen('admin-users') },
-        { label: 'Kick User',         action: () => setScreen('kick-user') },
-        { label: 'Logout',            action: handleLogout },
-        { label: 'Exit',              action: exit },
+        { label: 'Chat Rooms', action: () => setScreen('rooms') },
+        ...(isAdmin ? [
+            { label: 'View Active Users', action: () => setScreen('admin-users') },
+            { label: 'Kick User',         action: () => setScreen('kick-user') },
+        ] : []),
+        { label: 'Logout', action: handleLogout },
+        { label: 'Exit',   action: exit },
     ] : [
         { label: 'Login',    action: () => setScreen('login') },
         { label: 'Register', action: () => setScreen('register') },
@@ -66,6 +83,19 @@ export const App = () => {
                 }}
             />
         );
+    }
+
+    if (screen === 'rooms') {
+        return (
+            <RoomList
+                onEnterRoom={(room) => { setActiveRoom(room); setScreen('chat'); }}
+                onBack={() => setScreen('main')}
+            />
+        );
+    }
+
+    if (screen === 'chat' && activeRoom) {
+        return <Chatroom room={activeRoom} onBack={() => setScreen('rooms')} />;
     }
 
     if (screen === 'admin-users') {

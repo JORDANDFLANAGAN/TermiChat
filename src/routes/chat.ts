@@ -14,6 +14,16 @@ interface MessageBody {
     content: string;
 }
 
+// GET /chat/rooms — list all rooms
+router.get('/rooms', requireAuth, (_req: Request, res: Response) => {
+    try {
+        const rooms = db.prepare('SELECT id, name, created_at FROM rooms ORDER BY created_at DESC').all();
+        res.status(200).json({ rooms });
+    } catch {
+        res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
 // POST /chat/rooms — create a room
 router.post('/rooms', requireAuth, (req: Request<{}, {}, RoomBody>, res: Response) => {
     try {

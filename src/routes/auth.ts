@@ -80,4 +80,21 @@ router.post('/logout', requireAuth, (req: Request, res: Response) => {
     }
 });
 
+router.get('/me', requireAuth, (req: Request, res: Response) => {
+    try {
+        const user = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(req.user!.id) as
+            | { id: number; username: string; role: string }
+            | undefined;
+
+        if (!user) {
+            res.status(404).json({ message: 'User not found.' });
+            return;
+        }
+
+        res.status(200).json(user);
+    } catch {
+        res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
 export default router;
