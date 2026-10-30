@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import db from '../db.js';
 import requireAuth from '../middleware/auth.js';
 
+const subscribers = new Map<number, Set<Response>>();
+
 const router = express.Router();
 
 interface RoomBody {
@@ -100,6 +102,15 @@ router.post('/rooms/:roomId/messages', requireAuth, (req: Request<{ roomId: stri
             'INSERT INTO messages (message_content, message_creator, room_id) VALUES (?, ?, ?)'
         ).run(content, req.user!.id, roomId);
 
+        const newMessage = db.prepare(`
+            SELECT messages.id, messages.message_content, messages.created_at, users.username
+            FROM messages
+            INNER JOIN users ON messages.message_creator = users.id
+            WHERE messages.id = ?
+        `).get(result.lastInsertRowid);
+
+        broadcast(roomId, newMessage);
+
         res.status(201).json({ message: 'Message sent.', messageId: result.lastInsertRowid });
     } catch {
         res.status(500).json({ message: 'Internal server error.' });
@@ -140,5 +151,43 @@ router.get('/rooms/:roomId/messages', requireAuth, (req: Request, res: Response)
         res.status(500).json({ message: 'Internal server error.' });
     }
 });
+
+// GET /chat/rooms/:roomId/stream — SSE stream for live messages
+router.get('/rooms/:roomId/stream', requireAuth, (req: Request, res: Response) => {
+    const roomId = Number(req.params.roomId);
+
+    const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(roomId);
+    if (!room) {
+        res.status(404).json({ message: 'Room not found.' });
+        return;
+    }
+
+    const isMember = db.prepare(
+        'SELECT id FROM members WHERE room_id = ? AND user_id = ?'
+    ).get(roomId, req.user!.id);
+
+    if (!isMember) {
+        res.status(403).json({ message: 'You are not a member of this room.' });
+        return;
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    if (!subscribers.has(roomId)) subscribers.set(roomId, new Set());
+    subscribers.get(roomId)!.add(res);
+
+    req.on('close', () => {
+        subscribers.get(roomId)?.delete(res);
+    });
+});
+
+function broadcast(roomId: number, data: unknown): void {
+    subscribers.get(roomId)?.forEach(client => {
+        client.write(`data: ${JSON.stringify(data)}\n\n`);
+    });
+}
 
 export default router;
