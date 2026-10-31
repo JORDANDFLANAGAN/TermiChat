@@ -56,6 +56,18 @@ npx tsx src/cli/index.ts
 
 ---
 
+## Admin Setup
+
+After registering your account, promote it to admin with:
+
+```bash
+npm run make-admin <username>
+```
+
+The server must not be running when you do this (or you can run it while the server is up — SQLite WAL mode handles concurrent access fine). Admins can view active sessions, kick users, and delete rooms from within the CLI.
+
+---
+
 ## Connecting Remotely
 
 If the server is running on another machine or exposed via a tunnel (e.g. VS Code port forwarding), point the CLI at it using the `BASE_URL` environment variable:

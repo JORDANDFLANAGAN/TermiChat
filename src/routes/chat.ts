@@ -105,10 +105,11 @@ router.delete('/rooms/:roomId', requireAuth, requireAdmin, (req: Request, res: R
             return;
         }
 
-        // Delete in order: messages → members → room (foreign key constraints)
-        db.prepare('DELETE FROM messages WHERE room_id = ?').run(roomId);
-        db.prepare('DELETE FROM members WHERE room_id = ?').run(roomId);
-        db.prepare('DELETE FROM rooms WHERE id = ?').run(roomId);
+        db.transaction(() => {
+            db.prepare('DELETE FROM messages WHERE room_id = ?').run(roomId);
+            db.prepare('DELETE FROM members WHERE room_id = ?').run(roomId);
+            db.prepare('DELETE FROM rooms WHERE id = ?').run(roomId);
+        })();
 
         subscribers.delete(roomId);
 

@@ -72,7 +72,7 @@ export const RoomList = ({ onEnterRoom, onBack, isAdmin }: RoomListProps) => {
             await createRoom(name.trim());
             const updated = await getRooms();
             setRooms(updated);
-            setSelected(updated.length - 1);
+            setSelected(0);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to create room.');
         }

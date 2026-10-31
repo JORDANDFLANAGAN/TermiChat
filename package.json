@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node --import tsx/esm src/server.ts",
-    "dev": "nodemon --exec tsx src/server.ts"
+    "dev": "nodemon --exec tsx src/server.ts",
+    "make-admin": "tsx src/scripts/make-admin.ts"
   },
   "keywords": [],
   "type": "module",
