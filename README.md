@@ -1,6 +1,91 @@
 # TermiChat
 
-A terminal chat application built with Node.js, TypeScript, Express, and Ink.
+A real-time terminal chat application. Users register, create or join rooms, and exchange messages that appear instantly for everyone in the room — all from the command line.
+
+Built with Node.js, TypeScript, Express, SQLite, and Ink (React for the terminal).
+
+---
+
+## Features
+
+- Register and login with secure bcrypt-hashed passwords
+- Create and join chat rooms
+- Real-time messaging via Server-Sent Events (SSE)
+- Scrollable message history with automatic prefetch
+- Admin controls — view active users, kick sessions, delete rooms
+- Rate limiting on auth endpoints
+- Token rotation on every login
+
+---
+
+## Prerequisites
+
+- Node.js v18 or higher
+- npm
+
+---
+
+## Local Setup
+
+**1. Clone the repo**
+
+```bash
+git clone https://github.com/JORDANDFLANAGAN/TermiChat.git
+cd TermiChat
+```
+
+**2. Install dependencies**
+
+```bash
+npm install
+```
+
+**3. Start the server**
+
+```bash
+npm start
+```
+
+The API will be listening on `http://localhost:3000`.
+
+**4. Run the CLI** (in a separate terminal)
+
+```bash
+npx tsx src/cli/index.ts
+```
+
+---
+
+## Connecting Remotely
+
+If the server is running on another machine or exposed via a tunnel (e.g. VS Code port forwarding), point the CLI at it using the `BASE_URL` environment variable:
+
+```bash
+BASE_URL=https://your-tunnel-url.example.com npx tsx src/cli/index.ts
+```
+
+---
+
+## Project Structure
+
+```
+src/
+  server.ts              # Express entry point
+  db.ts                  # SQLite setup and schema
+  routes/
+    auth.ts              # Register, login, logout, /me
+    chat.ts              # Rooms, messages, SSE stream
+    admin.ts             # Admin-only endpoints
+  middleware/
+    auth.ts              # Token validation
+    requireAdmin.ts      # Admin role check
+  cli/
+    index.ts             # CLI entry point
+    commands/            # API call functions (auth, chat, admin)
+    ui/                  # Ink components (App, Chatroom, RoomList, ...)
+```
+
+---
 
 ## How It Works
 
