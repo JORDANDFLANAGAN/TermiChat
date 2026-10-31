@@ -14,10 +14,11 @@ db.pragma('foreign_keys = ON');
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL,
+    username TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user');
     `);
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)`);
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -27,6 +28,7 @@ db.exec(`
     expires_at TEXT NOT NULL,
     user_id INTEGER NOT NULL REFERENCES users(id))
     `);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`);
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS rooms (
@@ -51,5 +53,6 @@ db.exec(`
     room_id INTEGER NOT NULL REFERENCES rooms(id),
     user_id INTEGER NOT NULL REFERENCES users(id))
     `);
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_members_unique ON members(room_id, user_id)`);
 
 export default db;

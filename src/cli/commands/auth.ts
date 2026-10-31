@@ -1,19 +1,5 @@
-import axios from 'axios';
 import { saveToken, getToken, deleteToken } from '../token.js';
-
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
-
-const instance = axios.create({
-    baseURL: BASE_URL,
-    timeout: 5000,
-});
-
-function apiError(error: unknown): never {
-    if (axios.isAxiosError(error) && error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-    }
-    throw new Error('Request failed.');
-}
+import { instance, apiError, authHeaders } from '../api.js';
 
 export async function register(username: string, password: string): Promise<void> {
     try {
@@ -34,7 +20,7 @@ export async function login(username: string, password: string): Promise<void> {
 
 export async function getMe(): Promise<{ id: number; username: string; role: string }> {
     try {
-        const response = await instance.get('/auth/me', { headers: { Authorization: `Bearer ${getToken()}` } });
+        const response = await instance.get('/auth/me', { headers: authHeaders() });
         return response.data;
     } catch (error) {
         apiError(error);
@@ -42,12 +28,8 @@ export async function getMe(): Promise<{ id: number; username: string; role: str
 }
 
 export async function logout(): Promise<void> {
-    const token = getToken();
-    if (!token) throw new Error('Not logged in.');
     try {
-        await instance.post('/auth/logout', {}, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        await instance.post('/auth/logout', {}, { headers: authHeaders() });
     } catch {
         // server rejection is fine — token may already be invalid
     } finally {

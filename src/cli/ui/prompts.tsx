@@ -43,8 +43,8 @@ export const LoginPrompt = ({ title = 'Login', onSubmit, onComplete, minPassword
             setMessage('Success!');
             setSucceeded(true);
             setStep('done');
-        } catch (err: any) {
-            setError(err.message ?? 'Failed.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed.');
             setPassword('');
         }
     };
@@ -98,8 +98,8 @@ export const KickUserPrompt = ({ onKick, onComplete }: KickUserPromptProps) => {
             await onKick(value);
             setMessage(`Session expired for ${value}.`);
             setSucceeded(true);
-        } catch (err: any) {
-            setMessage(err.message ?? 'Failed.');
+        } catch (err: unknown) {
+            setMessage(err instanceof Error ? err.message : 'Failed.');
             setSucceeded(false);
         }
         setDone(true);

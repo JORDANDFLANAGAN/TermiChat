@@ -40,8 +40,8 @@ export const RoomList = ({ onEnterRoom, onBack, isAdmin }: RoomListProps) => {
                     const updated = await getRooms();
                     setRooms(updated);
                     setSelected(0);
-                } catch (err: any) {
-                    setError(err.message ?? 'Failed to delete room.');
+                } catch (err: unknown) {
+                    setError(err instanceof Error ? err.message : 'Failed to delete room.');
                 }
                 setConfirmDelete(false);
             }
@@ -73,8 +73,8 @@ export const RoomList = ({ onEnterRoom, onBack, isAdmin }: RoomListProps) => {
             const updated = await getRooms();
             setRooms(updated);
             setSelected(updated.length - 1);
-        } catch (err: any) {
-            setError(err.message ?? 'Failed to create room.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to create room.');
         }
         setNewRoomName('');
         setCreating(false);

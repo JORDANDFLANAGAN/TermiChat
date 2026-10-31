@@ -7,7 +7,7 @@ const TOKEN_PATH = path.join(TOKEN_DIR, 'token');
 
 export function saveToken(token: string): void {
     fs.mkdirSync(TOKEN_DIR, { recursive: true });
-    fs.writeFileSync(TOKEN_PATH, token, 'utf-8');
+    fs.writeFileSync(TOKEN_PATH, token, { encoding: 'utf-8', mode: 0o600 });
 }
 
 export function getToken(): string | null {
@@ -21,7 +21,7 @@ export function getToken(): string | null {
 export function deleteToken(): void {
     try {
         fs.unlinkSync(TOKEN_PATH);
-    } catch(err) {
-        console.log("Token doesn't exist");
+    } catch {
+        // token file may not exist; nothing to do
     }
 }

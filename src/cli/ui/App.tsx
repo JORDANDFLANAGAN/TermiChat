@@ -47,8 +47,8 @@ export const App = () => {
             setLoggedIn(false);
             setIsAdmin(false);
             status('Logged out.');
-        } catch (err: any) {
-            status(err.message ?? 'Logout failed.', 'red');
+        } catch (err: unknown) {
+            status(err instanceof Error ? err.message : 'Logout failed.', 'red');
         }
     };
 

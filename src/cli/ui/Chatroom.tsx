@@ -110,8 +110,8 @@ export const Chatroom = ({ room, onBack }: ChatroomProps) => {
         setScrollOffset(0); // snap back to bottom on send
         try {
             await sendMessage(room.id, value.trim());
-        } catch (err: any) {
-            setError(err.message ?? 'Failed to send.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to send.');
         }
     };
 

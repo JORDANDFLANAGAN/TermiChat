@@ -101,8 +101,7 @@ router.post('/login', loginLimiter, async (req: Request<{}, {}, AuthBody>, res: 
 
 router.post('/logout', requireAuth, (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization!.split(' ')[1];
-        db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+        db.prepare('DELETE FROM sessions WHERE token = ?').run(req.user!.token);
         res.status(200).json({ message: 'Logged out.' });
     } catch {
         res.status(500).json({ message: 'Internal server error' });

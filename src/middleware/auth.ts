@@ -10,9 +10,12 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
     }
 
     const token = authHeader.split(' ')[1];
-    const session = db.prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?').get(token) as
-        | { user_id: number; expires_at: string }
-        | undefined;
+    const session = db.prepare(`
+        SELECT sessions.user_id, sessions.expires_at, users.role
+        FROM sessions
+        JOIN users ON sessions.user_id = users.id
+        WHERE sessions.token = ?
+    `).get(token) as { user_id: number; expires_at: string; role: string } | undefined;
 
     if (!session) {
         res.status(401).json({ message: 'Invalid token' });
@@ -24,7 +27,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
         return;
     }
 
-    req.user = { id: session.user_id };
+    req.user = { id: session.user_id, role: session.role, token };
     next();
 }
 

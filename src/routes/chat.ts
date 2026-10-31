@@ -110,6 +110,8 @@ router.delete('/rooms/:roomId', requireAuth, requireAdmin, (req: Request, res: R
         db.prepare('DELETE FROM members WHERE room_id = ?').run(roomId);
         db.prepare('DELETE FROM rooms WHERE id = ?').run(roomId);
 
+        subscribers.delete(roomId);
+
         res.status(200).json({ message: 'Room deleted.' });
     } catch {
         res.status(500).json({ message: 'Internal server error.' });

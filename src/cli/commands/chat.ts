@@ -1,7 +1,7 @@
 import http from 'http';
 import https from 'https';
-import axios from 'axios';
 import { getToken } from '../token.js';
+import { BASE_URL, instance, apiError, authHeaders } from '../api.js';
 
 export interface Message {
     id: number;
@@ -16,26 +16,7 @@ export interface Room {
     is_member: 0 | 1;
 }
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
 const parsedBase = new URL(BASE_URL);
-
-const instance = axios.create({
-    baseURL: BASE_URL,
-    timeout: 5000,
-});
-
-function apiError(error: unknown): never {
-    if (axios.isAxiosError(error) && error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-    }
-    throw new Error('Request failed.');
-}
-
-function authHeaders() {
-    const token = getToken();
-    if (!token) throw new Error('Not logged in.');
-    return { Authorization: `Bearer ${token}` };
-}
 
 export async function createRoom(name: string): Promise<void> {
     try {
