@@ -10,7 +10,7 @@ Built with Node.js, TypeScript, Express, SQLite, and Ink (React for the terminal
 
 - Register and login with secure bcrypt-hashed passwords
 - Create and join chat rooms
-- Real-time messaging via Server-Sent Events (SSE)
+- Real-time messaging via Server-Sent Events (SSE) with automatic reconnect
 - Scrollable message history with automatic prefetch
 - Admin controls — view active users, kick sessions, delete rooms
 - Rate limiting on auth endpoints
@@ -145,6 +145,10 @@ client.write(`data: ${JSON.stringify(data)}\n\n`);
 ```
 
 On the client side in `src/cli/commands/chat.ts`, `streamMessages` opens a persistent `http.get` request with the auth token in the header. Incoming chunks are buffered as a string and split on `\n\n` (the SSE frame boundary). Each frame is scanned for a `data: ` line, parsed as JSON, and passed to the `onMessage` callback. Back in `Chatroom.tsx` that callback calls `setMessages(prev => [...prev, msg])`, which triggers a React re-render and the new message appears.
+
+If the connection drops (network blip, server restart, tunnel timeout), `streamMessages` reconnects automatically using exponential backoff — 1 s, 2 s, 4 s, up to 30 s. The delay resets to 1 s on each successful reconnect. A `stopped` flag set by the cleanup function prevents any further attempts after the user leaves the room.
+
+`Chatroom.tsx` tracks the connection status and shows a `reconnecting...` indicator next to the room name while the stream is down. On reconnect it also fetches the latest message batch and merges it by ID into the existing list, so any messages that arrived during the outage appear without duplication.
 
 ---
 

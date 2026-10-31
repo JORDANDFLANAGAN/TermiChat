@@ -79,49 +79,80 @@ export async function getRooms(): Promise<Room[]> {
     }
 }
 
+export type StreamStatus = 'connected' | 'reconnecting';
+
 // Opens a persistent HTTP connection to the server's SSE endpoint for a given room.
 // The server keeps this connection open and pushes a "data: {...}\n\n" frame each
 // time a new message is posted (see broadcast() in routes/chat.ts).
 // We use Node's built-in http module so we can pass auth headers — the browser
 // EventSource API doesn't support headers, so we parse the stream manually instead.
+// Reconnects automatically with exponential backoff if the connection drops.
 // Returns a cleanup function — call it to close the connection when leaving the room.
-export function streamMessages(roomId: number, onMessage: (msg: Message) => void): () => void {
+export function streamMessages(
+    roomId: number,
+    onMessage: (msg: Message) => void,
+    onStatusChange?: (status: StreamStatus) => void,
+): () => void {
     const token = getToken();
     if (!token) return () => {};
 
-    // Buffer accumulates chunks until we have a complete "data: ...\n\n" frame.
-    let buffer = '';
-
-    // Use https or http depending on the BASE_URL protocol (VS Code forwarding uses https)
     const transport = parsedBase.protocol === 'https:' ? https : http;
-    const req = transport.get({
-        hostname: parsedBase.hostname,
-        port: parsedBase.port || (parsedBase.protocol === 'https:' ? 443 : 80),
-        path: `/chat/rooms/${roomId}/stream`,
-        headers: { Authorization: `Bearer ${token}` },
-    }, (res) => {
-        res.on('data', (chunk: Buffer) => {
-            buffer += chunk.toString();
+    let stopped = false;
+    let currentReq: ReturnType<typeof transport.get> | null = null;
+    let retryDelay = 1000;
+    const MAX_DELAY = 30000;
 
-            // SSE frames are separated by double newlines. Split on them,
-            // keeping any incomplete frame in the buffer for the next chunk.
-            const frames = buffer.split('\n\n');
-            buffer = frames.pop() ?? '';
+    function connect() {
+        if (stopped) return;
 
-            for (const frame of frames) {
-                // Each frame may have multiple lines; we only care about "data: ..."
-                const dataLine = frame.split('\n').find(l => l.startsWith('data: '));
-                if (dataLine) {
-                    try {
-                        const msg = JSON.parse(dataLine.slice(6)) as Message;
-                        onMessage(msg);
-                    } catch {}
+        let buffer = '';
+
+        const req = transport.get({
+            hostname: parsedBase.hostname,
+            port: parsedBase.port || (parsedBase.protocol === 'https:' ? 443 : 80),
+            path: `/chat/rooms/${roomId}/stream`,
+            headers: { Authorization: `Bearer ${token}` },
+        }, (res) => {
+            retryDelay = 1000;
+            onStatusChange?.('connected');
+
+            res.on('data', (chunk: Buffer) => {
+                buffer += chunk.toString();
+
+                // SSE frames are separated by double newlines. Split on them,
+                // keeping any incomplete frame in the buffer for the next chunk.
+                const frames = buffer.split('\n\n');
+                buffer = frames.pop() ?? '';
+
+                for (const frame of frames) {
+                    const dataLine = frame.split('\n').find(l => l.startsWith('data: '));
+                    if (dataLine) {
+                        try {
+                            const msg = JSON.parse(dataLine.slice(6)) as Message;
+                            onMessage(msg);
+                        } catch {}
+                    }
                 }
-            }
+            });
+
+            res.on('end', scheduleReconnect);
         });
-    });
 
-    req.on('error', () => {});
+        req.on('error', scheduleReconnect);
+        currentReq = req;
+    }
 
-    return () => req.destroy();
+    function scheduleReconnect() {
+        if (stopped) return;
+        onStatusChange?.('reconnecting');
+        setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, MAX_DELAY);
+    }
+
+    connect();
+
+    return () => {
+        stopped = true;
+        currentReq?.destroy();
+    };
 }
