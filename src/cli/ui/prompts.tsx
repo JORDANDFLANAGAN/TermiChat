@@ -19,6 +19,12 @@ export const LoginPrompt = ({ title = 'Login', onSubmit, onComplete, minPassword
 
     useInput((_, key) => {
         if (step === 'done' && key.return) onComplete(succeeded);
+        if (step === 'password' && key.escape) {
+            setUsername('');
+            setPassword('');
+            setError('');
+            setStep('username');
+        }
     });
 
     const handleUsernameSubmit = (value: string) => {
