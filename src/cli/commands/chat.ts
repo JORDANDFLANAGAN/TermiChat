@@ -61,10 +61,29 @@ export async function sendMessage(roomId: number, content: string): Promise<void
     }
 }
 
-export async function getMessages(roomId: number): Promise<Message[]> {
+export async function getMessages(roomId: number, before?: number): Promise<Message[]> {
     try {
-        const response = await instance.get(`/chat/rooms/${roomId}/messages`, { headers: authHeaders() });
+        const response = await instance.get(`/chat/rooms/${roomId}/messages`, {
+            headers: authHeaders(),
+            params: before ? { before } : {},
+        });
         return response.data.messages;
+    } catch (error) {
+        apiError(error);
+    }
+}
+
+export async function deleteRoom(roomId: number): Promise<void> {
+    try {
+        await instance.delete(`/chat/rooms/${roomId}`, { headers: authHeaders() });
+    } catch (error) {
+        apiError(error);
+    }
+}
+
+export async function leaveRoom(roomId: number): Promise<void> {
+    try {
+        await instance.delete(`/chat/rooms/${roomId}/leave`, { headers: authHeaders() });
     } catch (error) {
         apiError(error);
     }

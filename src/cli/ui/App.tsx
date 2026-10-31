@@ -98,6 +98,7 @@ export const App = () => {
             <RoomList
                 onEnterRoom={(room) => { setActiveRoom(room); setScreen('chat'); }}
                 onBack={() => setScreen('main')}
+                isAdmin={isAdmin}
             />
         );
     }

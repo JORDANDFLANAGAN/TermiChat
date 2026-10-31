@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import { getRooms, joinRoom, createRoom, Room } from '../commands/chat.js';
+import { getRooms, joinRoom, createRoom, deleteRoom, Room } from '../commands/chat.js';
 
 type Tab = 'all' | 'my';
 
 interface RoomListProps {
     onEnterRoom: (room: Room) => void;
     onBack: () => void;
+    isAdmin: boolean;
 }
 
-export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
+export const RoomList = ({ onEnterRoom, onBack, isAdmin }: RoomListProps) => {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [tab, setTab] = useState<Tab>('all');
     const [selected, setSelected] = useState(0);
@@ -18,6 +19,7 @@ export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
     const [error, setError] = useState('');
     const [creating, setCreating] = useState(false);
     const [newRoomName, setNewRoomName] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
     useEffect(() => {
         getRooms()
@@ -31,10 +33,26 @@ export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
 
     useInput(async (input, key) => {
         if (creating) return;
+        if (confirmDelete) {
+            if (key.return && visible[selected]) {
+                try {
+                    await deleteRoom(visible[selected].id);
+                    const updated = await getRooms();
+                    setRooms(updated);
+                    setSelected(0);
+                } catch (err: any) {
+                    setError(err.message ?? 'Failed to delete room.');
+                }
+                setConfirmDelete(false);
+            }
+            if (key.escape) setConfirmDelete(false);
+            return;
+        }
         if (key.upArrow) setSelected(i => Math.max(0, i - 1));
         if (key.downArrow) setSelected(i => Math.min(visible.length - 1, i + 1));
         if (key.escape) onBack();
         if (input === 'n') setCreating(true);
+        if (input === 'd' && isAdmin && visible[selected]) setConfirmDelete(true);
         // Left/right arrows switch tabs and reset the cursor to the top
         if (key.leftArrow || key.rightArrow) {
             setTab(t => t === 'all' ? 'my' : 'all');
@@ -89,7 +107,10 @@ export const RoomList = ({ onEnterRoom, onBack }: RoomListProps) => {
                 </Box>
             )}
             <Text> </Text>
-            <Text dimColor>↑↓ navigate   ←→ switch tab   enter open   n new room   esc back</Text>
+            {confirmDelete
+                ? <Text color="yellow">Delete #{visible[selected]?.name}? This cannot be undone. enter confirm   esc cancel</Text>
+                : <Text dimColor>↑↓ navigate   ←→ switch tab   enter open   n new room{isAdmin ? '   d delete' : ''}   esc back</Text>
+            }
         </Box>
     );
 };

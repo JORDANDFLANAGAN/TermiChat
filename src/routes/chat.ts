@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
 import requireAuth from '../middleware/auth.js';
+import requireAdmin from '../middleware/requireAdmin.js';
 
 const subscribers = new Map<number, Set<Response>>();
 
@@ -93,6 +94,51 @@ router.post('/rooms/:roomId/join', requireAuth, (req: Request, res: Response) =>
     }
 });
 
+// DELETE /chat/rooms/:roomId — admin only, deletes the room and all its messages and members
+router.delete('/rooms/:roomId', requireAuth, requireAdmin, (req: Request, res: Response) => {
+    try {
+        const roomId = Number(req.params.roomId);
+
+        const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(roomId);
+        if (!room) {
+            res.status(404).json({ message: 'Room not found.' });
+            return;
+        }
+
+        // Delete in order: messages → members → room (foreign key constraints)
+        db.prepare('DELETE FROM messages WHERE room_id = ?').run(roomId);
+        db.prepare('DELETE FROM members WHERE room_id = ?').run(roomId);
+        db.prepare('DELETE FROM rooms WHERE id = ?').run(roomId);
+
+        res.status(200).json({ message: 'Room deleted.' });
+    } catch {
+        res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
+// DELETE /chat/rooms/:roomId/leave — remove yourself from a room's members
+router.delete('/rooms/:roomId/leave', requireAuth, (req: Request, res: Response) => {
+    try {
+        const roomId = Number(req.params.roomId);
+
+        const isMember = db.prepare(
+            'SELECT id FROM members WHERE room_id = ? AND user_id = ?'
+        ).get(roomId, req.user!.id);
+
+        if (!isMember) {
+            res.status(400).json({ message: 'You are not a member of this room.' });
+            return;
+        }
+
+        db.prepare('DELETE FROM members WHERE room_id = ? AND user_id = ?')
+            .run(roomId, req.user!.id);
+
+        res.status(200).json({ message: 'Left room.' });
+    } catch {
+        res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
 // POST /chat/rooms/:roomId/messages — post a message
 router.post('/rooms/:roomId/messages', requireAuth, (req: Request<{ roomId: string }, {}, MessageBody>, res: Response) => {
     try {
@@ -143,10 +189,13 @@ router.post('/rooms/:roomId/messages', requireAuth, (req: Request<{ roomId: stri
     }
 });
 
-// GET /chat/rooms/:roomId/messages — fetch last 50 messages
+// GET /chat/rooms/:roomId/messages — fetch last 50 messages, or 50 before a given message id
+// The optional ?before=<id> param is used for pagination: pass the oldest loaded message's id
+// to get the next batch of older messages.
 router.get('/rooms/:roomId/messages', requireAuth, (req: Request, res: Response) => {
     try {
         const roomId = Number(req.params.roomId);
+        const before = req.query.before ? Number(req.query.before) : null;
 
         const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(roomId);
         if (!room) {
@@ -163,16 +212,23 @@ router.get('/rooms/:roomId/messages', requireAuth, (req: Request, res: Response)
             return;
         }
 
-        const messages = db.prepare(`
-            SELECT messages.id, messages.message_content, messages.created_at, users.username
-            FROM messages
-            INNER JOIN users ON messages.message_creator = users.id
-            WHERE messages.room_id = ?
-            ORDER BY messages.created_at DESC
-            LIMIT 50
-        `).all(roomId);
+        const messages = before
+            ? db.prepare(`
+                SELECT messages.id, messages.message_content, messages.created_at, users.username
+                FROM messages
+                INNER JOIN users ON messages.message_creator = users.id
+                WHERE messages.room_id = ? AND messages.id < ?
+                ORDER BY messages.created_at DESC LIMIT 50
+            `).all(roomId, before)
+            : db.prepare(`
+                SELECT messages.id, messages.message_content, messages.created_at, users.username
+                FROM messages
+                INNER JOIN users ON messages.message_creator = users.id
+                WHERE messages.room_id = ?
+                ORDER BY messages.created_at DESC LIMIT 50
+            `).all(roomId);
 
-        res.status(200).json({ messages: messages.reverse() });
+        res.status(200).json({ messages: (messages as any[]).reverse() });
     } catch {
         res.status(500).json({ message: 'Internal server error.' });
     }
