@@ -12,6 +12,7 @@ Built with Node.js, TypeScript, Express, SQLite, and Ink (React for the terminal
 - Create and join chat rooms
 - Real-time messaging via Server-Sent Events (SSE) with automatic reconnect
 - Scrollable message history with automatic prefetch
+- Unread message indicators per room
 - Admin controls — view active users, kick sessions, delete rooms
 - Rate limiting on auth endpoints
 - Token rotation on every login
@@ -190,6 +191,32 @@ process.on('SIGINT', shutdown);
 The `shutdown` function does three things in order. First it calls `closeAllConnections()`, which iterates every open SSE response in the subscribers map, calls `.end()` on each one (so connected clients get a clean EOF rather than a broken pipe), and clears the map. Then it calls `server.close()` to stop accepting new HTTP connections and waits for in-flight requests to drain. Finally, inside the `server.close()` callback, it calls `db.close()` — this triggers SQLite's WAL checkpoint, flushing the write-ahead log back into the main database file before the process exits.
 
 `SIGTERM` is what process managers like PM2 send on a restart or deploy. `SIGINT` is Ctrl-C in development. Both are handled identically.
+
+---
+
+### Unread Message Indicators
+
+Each room in the list shows a yellow `·N` count next to its name when there are messages you haven't seen. The count only appears for rooms you're a member of.
+
+The server tracks reads with a `last_read_id` column on the `members` table — one integer per user per room, defaulting to `0`. The `GET /chat/rooms` query computes the unread count inline for each room:
+
+```sql
+SELECT COUNT(*) FROM messages
+WHERE messages.room_id = rooms.id
+AND messages.id > members.last_read_id
+```
+
+When you open a room, the client calls `POST /chat/rooms/:roomId/read`, which advances your `last_read_id` to the current `MAX(id)` in that room:
+
+```sql
+UPDATE members SET last_read_id = COALESCE(
+    (SELECT MAX(id) FROM messages WHERE room_id = ?), 0
+) WHERE room_id = ? AND user_id = ?
+```
+
+This call happens twice per visit — once on mount (clears the badge immediately when you enter) and once on unmount (catches any SSE messages that arrived while you were in the room). A failed mark is silently swallowed since it's best-effort and shouldn't interrupt the user.
+
+Because `RoomList` is unmounted and remounted each time you navigate back to it from a chatroom, it always refetches the full room list with fresh unread counts.
 
 ---
 

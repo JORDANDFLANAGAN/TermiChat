@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import { Message, Room, StreamStatus, getMessages, sendMessage, streamMessages, leaveRoom } from '../commands/chat.js';
+import { Message, Room, StreamStatus, getMessages, sendMessage, streamMessages, leaveRoom, markRoomRead } from '../commands/chat.js';
 
 // How many messages are rendered at once, and how close to the top of the
 // loaded buffer we get before silently fetching the next batch of older messages.
@@ -35,6 +35,8 @@ export const Chatroom = ({ room, onBack }: ChatroomProps) => {
     const hasConnectedOnce = useRef(false);
 
     // One-time fetch to populate message history when entering the room.
+    // Also marks the room as read immediately (clears the unread badge in the room list)
+    // and again on unmount to catch any SSE messages that arrived during the visit.
     useEffect(() => {
         getMessages(room.id)
             .then(msgs => {
@@ -43,6 +45,8 @@ export const Chatroom = ({ room, onBack }: ChatroomProps) => {
             })
             .catch((err: Error) => setError(err.message))
             .finally(() => setLoading(false));
+        markRoomRead(room.id);
+        return () => { markRoomRead(room.id); };
     }, []);
 
     // SSE stream — appends incoming messages in real time.

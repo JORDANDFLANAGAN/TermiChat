@@ -22,12 +22,20 @@ interface MessageRow {
     username: string;
 }
 
-// GET /chat/rooms — list all rooms, with is_member flag for the requesting user
+// GET /chat/rooms — list all rooms, with is_member and unread_count for the requesting user
 router.get('/rooms', requireAuth, (req: Request, res: Response) => {
     try {
         const rooms = db.prepare(`
             SELECT rooms.id, rooms.name, rooms.created_at,
-                   CASE WHEN members.user_id IS NOT NULL THEN 1 ELSE 0 END as is_member
+                   CASE WHEN members.user_id IS NOT NULL THEN 1 ELSE 0 END as is_member,
+                   CASE
+                       WHEN members.user_id IS NOT NULL THEN (
+                           SELECT COUNT(*) FROM messages
+                           WHERE messages.room_id = rooms.id
+                           AND messages.id > members.last_read_id
+                       )
+                       ELSE 0
+                   END as unread_count
             FROM rooms
             LEFT JOIN members ON members.room_id = rooms.id AND members.user_id = ?
             ORDER BY rooms.created_at DESC
@@ -121,6 +129,32 @@ router.delete('/rooms/:roomId', requireAuth, requireAdmin, (req: Request, res: R
         subscribers.delete(roomId);
 
         res.status(200).json({ message: 'Room deleted.' });
+    } catch {
+        res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
+// POST /chat/rooms/:roomId/read — advance the caller's last_read_id to the current newest message
+router.post('/rooms/:roomId/read', requireAuth, (req: Request, res: Response) => {
+    try {
+        const roomId = Number(req.params.roomId);
+
+        const isMember = db.prepare(
+            'SELECT id FROM members WHERE room_id = ? AND user_id = ?'
+        ).get(roomId, req.user!.id);
+
+        if (!isMember) {
+            res.status(403).json({ message: 'You are not a member of this room.' });
+            return;
+        }
+
+        db.prepare(`
+            UPDATE members SET last_read_id = COALESCE(
+                (SELECT MAX(id) FROM messages WHERE room_id = ?), 0
+            ) WHERE room_id = ? AND user_id = ?
+        `).run(roomId, roomId, req.user!.id);
+
+        res.status(200).json({ message: 'Marked as read.' });
     } catch {
         res.status(500).json({ message: 'Internal server error.' });
     }

@@ -51,8 +51,16 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS members (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id INTEGER NOT NULL REFERENCES rooms(id),
-    user_id INTEGER NOT NULL REFERENCES users(id))
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    last_read_id INTEGER NOT NULL DEFAULT 0)
     `);
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_members_unique ON members(room_id, user_id)`);
+
+// Migration: add last_read_id to existing databases that predate this column
+try {
+    db.exec('ALTER TABLE members ADD COLUMN last_read_id INTEGER NOT NULL DEFAULT 0');
+} catch {
+    // column already exists
+}
 
 export default db;

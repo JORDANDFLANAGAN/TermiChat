@@ -14,6 +14,7 @@ export interface Room {
     id: number;
     name: string;
     is_member: 0 | 1;
+    unread_count: number;
 }
 
 const parsedBase = new URL(BASE_URL);
@@ -41,6 +42,7 @@ export async function sendMessage(roomId: number, content: string): Promise<void
         apiError(error);
     }
 }
+
 
 export async function getMessages(roomId: number, before?: number): Promise<Message[]> {
     try {
@@ -80,6 +82,14 @@ export async function getRooms(): Promise<Room[]> {
 }
 
 export type StreamStatus = 'connected' | 'reconnecting';
+
+export async function markRoomRead(roomId: number): Promise<void> {
+    try {
+        await instance.post(`/chat/rooms/${roomId}/read`, {}, { headers: authHeaders() });
+    } catch {
+        // best-effort — a failed mark shouldn't interrupt the user
+    }
+}
 
 // Opens a persistent HTTP connection to the server's SSE endpoint for a given room.
 // The server keeps this connection open and pushes a "data: {...}\n\n" frame each

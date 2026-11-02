@@ -97,6 +97,9 @@ export const RoomList = ({ onEnterRoom, onBack, isAdmin }: RoomListProps) => {
                 visible.map((room, i) => (
                     <Text key={room.id} color={i === selected ? 'cyan' : 'white'}>
                         {i === selected ? '› ' : '  '}{room.name}
+                        {room.is_member === 1 && room.unread_count > 0 && (
+                            <Text color="yellow"> ·{room.unread_count}</Text>
+                        )}
                     </Text>
                 ))
             )}
