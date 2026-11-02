@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
+import db from './db.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
-import chatRoutes from './routes/chat.js';
+import chatRoutes, { closeAllConnections } from './routes/chat.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +14,17 @@ app.use('/auth', authRoutes);
 app.use('/admin', adminRoutes);
 app.use('/chat', chatRoutes);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`listening on port ${PORT}`);
 });
+
+function shutdown() {
+    closeAllConnections();
+    server.close(() => {
+        db.close();
+        process.exit(0);
+    });
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

@@ -15,6 +15,8 @@ Built with Node.js, TypeScript, Express, SQLite, and Ink (React for the terminal
 - Admin controls — view active users, kick sessions, delete rooms
 - Rate limiting on auth endpoints
 - Token rotation on every login
+- Automatic stale session cleanup on login
+- Graceful shutdown — flushes SSE connections and checkpoints the database cleanly
 
 ---
 
@@ -161,6 +163,33 @@ On the client side in `src/cli/commands/chat.ts`, `streamMessages` opens a persi
 If the connection drops (network blip, server restart, tunnel timeout), `streamMessages` reconnects automatically using exponential backoff — 1 s, 2 s, 4 s, up to 30 s. The delay resets to 1 s on each successful reconnect. A `stopped` flag set by the cleanup function prevents any further attempts after the user leaves the room.
 
 `Chatroom.tsx` tracks the connection status and shows a `reconnecting...` indicator next to the room name while the stream is down. On reconnect it also fetches the latest message batch and merges it by ID into the existing list, so any messages that arrived during the outage appear without duplication.
+
+---
+
+### Stale Session Cleanup
+
+Expired sessions are pruned from the database at the start of every login request, before the new session is created:
+
+```ts
+db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+```
+
+This runs at the natural point where the database is already being written to, so there's no background timer or cron job to manage. Sessions expire after 24 hours, so in a low-traffic deployment the table stays small without any extra infrastructure.
+
+---
+
+### Graceful Shutdown
+
+`src/server.ts` registers handlers for `SIGTERM` and `SIGINT`:
+
+```ts
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+```
+
+The `shutdown` function does three things in order. First it calls `closeAllConnections()`, which iterates every open SSE response in the subscribers map, calls `.end()` on each one (so connected clients get a clean EOF rather than a broken pipe), and clears the map. Then it calls `server.close()` to stop accepting new HTTP connections and waits for in-flight requests to drain. Finally, inside the `server.close()` callback, it calls `db.close()` — this triggers SQLite's WAL checkpoint, flushing the write-ahead log back into the main database file before the process exits.
+
+`SIGTERM` is what process managers like PM2 send on a restart or deploy. `SIGINT` is Ctrl-C in development. Both are handled identically.
 
 ---
 

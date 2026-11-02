@@ -86,6 +86,7 @@ router.post('/login', loginLimiter, async (req: Request<{}, {}, AuthBody>, res: 
         const expiresAt = new Date();
         expiresAt.setUTCDate(expiresAt.getUTCDate() + 1);
 
+        db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
         db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
         db.prepare('INSERT INTO sessions (token, expires_at, user_id) VALUES (?, ?, ?)').run(
             token,

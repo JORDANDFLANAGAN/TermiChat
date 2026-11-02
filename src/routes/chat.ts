@@ -15,6 +15,13 @@ interface MessageBody {
     content: string;
 }
 
+interface MessageRow {
+    id: number;
+    message_content: string;
+    created_at: string;
+    username: string;
+}
+
 // GET /chat/rooms — list all rooms, with is_member flag for the requesting user
 router.get('/rooms', requireAuth, (req: Request, res: Response) => {
     try {
@@ -231,7 +238,7 @@ router.get('/rooms/:roomId/messages', requireAuth, (req: Request, res: Response)
                 ORDER BY messages.created_at DESC LIMIT 50
             `).all(roomId);
 
-        res.status(200).json({ messages: (messages as any[]).reverse() });
+        res.status(200).json({ messages: (messages as MessageRow[]).reverse() });
     } catch {
         res.status(500).json({ message: 'Internal server error.' });
     }
@@ -273,6 +280,11 @@ function broadcast(roomId: number, data: unknown): void {
     subscribers.get(roomId)?.forEach(client => {
         client.write(`data: ${JSON.stringify(data)}\n\n`);
     });
+}
+
+export function closeAllConnections(): void {
+    subscribers.forEach(clients => clients.forEach(client => client.end()));
+    subscribers.clear();
 }
 
 export default router;
